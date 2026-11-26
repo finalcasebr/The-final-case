@@ -1,0 +1,2827 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>THE FINAL CASE — Raven Creek (1994)</title>
+<style>
+  :root {
+    --bg-dark: #070607;
+    --panel-bg: rgba(14, 10, 12, 0.88);
+    --panel-border: rgba(159, 18, 57, 0.42);
+    --accent-crimson: #9f1239;
+    --text-main: #e7e5e4;
+    --text-muted: #a8a29e;
+    --hud-scale: 1;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-dark);
+    color: var(--text-main);
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Inter, sans-serif;
+  }
+
+  #game-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 1;
+  }
+
+  /* Visual Styles */
+  body.style-ps1 #game-canvas {
+    image-rendering: pixelated;
+    filter: contrast(1.2) saturate(1.12) brightness(0.98);
+  }
+  body.style-realistic #game-canvas {
+    filter: contrast(1.08) saturate(0.94) brightness(0.97);
+  }
+  body.style-atmospheric #game-canvas {
+    filter: contrast(1.04) saturate(1.0) brightness(1.0);
+  }
+  body.style-noir #game-canvas {
+    filter: grayscale(1) contrast(1.32) brightness(0.92);
+  }
+  body.style-vhs #game-canvas {
+    filter: contrast(1.16) saturate(0.82) hue-rotate(-6deg) brightness(0.94);
+  }
+
+  #vhs-scanlines {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    opacity: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.03) 0px,
+      rgba(255,255,255,0.03) 1px,
+      rgba(0,0,0,0.28) 2px,
+      rgba(0,0,0,0.28) 4px
+    );
+    transition: opacity 0.25s ease;
+  }
+  body.style-vhs #vhs-scanlines {
+    opacity: 0.72;
+  }
+
+  #chase-vignette {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    opacity: 0;
+    background: radial-gradient(circle at center, transparent 42%, rgba(127, 29, 29, 0.65) 100%);
+    transition: opacity 0.25s ease;
+  }
+
+  /* Loading Screen */
+  #loading-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: #050506;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 28px;
+    text-align: center;
+    transition: opacity 0.45s ease;
+  }
+  #loading-screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .load-brand {
+    letter-spacing: 0.24em;
+    font-size: clamp(1.5rem, 4vw, 2.4rem);
+    font-weight: 800;
+    color: #f5f5f4;
+    margin-bottom: 8px;
+  }
+  .load-sub {
+    color: #fda4af;
+    font-size: 0.85rem;
+    letter-spacing: 0.14em;
+    margin-bottom: 22px;
+  }
+  .load-bar-wrap {
+    width: min(360px, 84vw);
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  #load-bar-fill {
+    width: 20%;
+    height: 100%;
+    background: linear-gradient(90deg, #881337, #e11d48);
+    transition: width 0.2s ease;
+  }
+  #load-status {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  #load-tip {
+    font-size: 0.84rem;
+    color: #d6d3d1;
+    max-width: 500px;
+  }
+
+  /* Main Menu */
+  #main-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: clamp(18px, 4vw, 44px);
+    background:
+      linear-gradient(90deg, rgba(6,5,6,0.82) 0%, rgba(6,5,6,0.42) 55%, rgba(6,5,6,0.12) 100%),
+      linear-gradient(to top, rgba(6,5,6,0.78) 0%, transparent 28%);
+  }
+  #main-menu.hidden {
+    display: none;
+  }
+  .menu-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .device-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 6px 11px;
+    border-radius: 6px;
+    background: rgba(20, 12, 15, 0.82);
+    border: 1px solid rgba(225, 29, 72, 0.35);
+    color: #fecdd3;
+  }
+  .menu-title-block {
+    max-width: 520px;
+    margin-top: auto;
+    margin-bottom: auto;
+  }
+  .menu-kicker {
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+    color: #fb7185;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+  .menu-title {
+    font-weight: 800;
+    font-size: clamp(2.2rem, 6vw, 4.1rem);
+    line-height: 1.05;
+    letter-spacing: 0.08em;
+    color: #fafaf9;
+    text-shadow: 0 4px 28px rgba(0, 0, 0, 0.9);
+    margin-bottom: 22px;
+  }
+  .menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(280px, 84vw);
+  }
+  .game-btn {
+    padding: 12px 18px;
+    border-radius: 6px;
+    border: 1px solid rgba(225, 29, 72, 0.42);
+    background: rgba(18, 11, 14, 0.86);
+    color: #f5f5f4;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.14s ease, background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+  }
+  .game-btn:hover, .game-btn:focus-visible, .game-btn.xbox-focus {
+    transform: translateX(4px);
+    background: rgba(136, 19, 55, 0.55);
+    border-color: #fb7185;
+    box-shadow: 0 0 0 2px rgba(251, 113, 133, 0.45);
+    outline: none;
+  }
+  .game-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .game-btn.secondary {
+    font-size: 0.84rem;
+    letter-spacing: 0.05em;
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+
+  /* HUD */
+  #hud {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+    display: none;
+    transform: scale(var(--hud-scale));
+    transform-origin: top left;
+    width: calc(100% / var(--hud-scale));
+    height: calc(100% / var(--hud-scale));
+  }
+  #hud.active {
+    display: block;
+  }
+  .hud-top {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .hud-chip {
+    pointer-events: auto;
+    background: rgba(12, 8, 10, 0.82);
+    border: 1px solid rgba(159, 18, 57, 0.36);
+    border-radius: 7px;
+    padding: 8px 12px;
+    font-size: 0.78rem;
+    color: #e7e5e4;
+    backdrop-filter: blur(4px);
+  }
+  .hud-loc {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #fecdd3;
+    letter-spacing: 0.04em;
+  }
+  .hud-obj {
+    font-size: 0.74rem;
+    color: #d6d3d1;
+    margin-top: 2px;
+  }
+  .hud-right-cluster {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+  .hud-actions-top {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .hud-mini-btn {
+    pointer-events: auto;
+    background: rgba(16, 10, 13, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #f5f5f4;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .hud-mini-btn:hover, .hud-mini-btn.xbox-focus {
+    border-color: #fb7185;
+    background: rgba(136, 19, 55, 0.48);
+  }
+
+  /* Minimap */
+  #minimap-box {
+    pointer-events: auto;
+    width: 116px;
+    height: 116px;
+    border-radius: 8px;
+    background: rgba(9, 7, 9, 0.88);
+    border: 1px solid rgba(225, 29, 72, 0.42);
+    overflow: hidden;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.75);
+  }
+  #minimap-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Crosshair & Prompt */
+  #crosshair {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    margin-left: -4px;
+    margin-top: -4px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.78);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.9);
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+  #crosshair.interact {
+    transform: scale(1.9);
+    background: #fb7185;
+  }
+  #interact-prompt {
+    position: absolute;
+    left: 50%;
+    top: calc(50% + 22px);
+    transform: translateX(-50%);
+    background: rgba(12, 8, 10, 0.88);
+    border: 1px solid rgba(251, 113, 133, 0.45);
+    color: #ffe4e6;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    display: none;
+  }
+  #interact-prompt.visible {
+    display: block;
+  }
+
+  /* Subtitles & Closeable Messages */
+  #subtitle-box {
+    position: absolute;
+    left: 50%;
+    bottom: clamp(82px, 15vh, 132px);
+    transform: translateX(-50%);
+    width: min(700px, 92vw);
+    display: none;
+  }
+  #subtitle-box.visible {
+    display: block;
+  }
+  .sub-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .sub-speaker {
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #fda4af;
+    text-transform: uppercase;
+  }
+  .close-msg-btn {
+    pointer-events: auto;
+    background: rgba(24, 14, 18, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #f5f5f4;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .close-msg-btn:hover {
+    border-color: #fb7185;
+    background: rgba(136, 19, 55, 0.6);
+  }
+  .sub-body {
+    background: rgba(8, 6, 8, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 7px;
+    padding: 9px 14px;
+    font-size: clamp(0.84rem, 2.2vw, 0.98rem);
+    line-height: 1.45;
+    color: #fafaf9;
+    text-align: center;
+  }
+  .sub-footer {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  #voice-replay-btn {
+    pointer-events: auto;
+    background: rgba(24, 14, 18, 0.88);
+    border: 1px solid rgba(251, 113, 133, 0.38);
+    color: #fecdd3;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    cursor: pointer;
+  }
+
+  #toast-msg {
+    pointer-events: auto;
+    position: absolute;
+    left: 50%;
+    top: 72px;
+    transform: translateX(-50%);
+    background: rgba(18, 10, 14, 0.94);
+    border: 1px solid rgba(225, 29, 72, 0.45);
+    border-left: 3px solid #e11d48;
+    color: #f5f5f4;
+    padding: 7px 12px;
+    border-radius: 5px;
+    font-size: 0.8rem;
+    display: none;
+    align-items: center;
+    gap: 10px;
+  }
+  #toast-msg.show {
+    display: flex;
+  }
+
+  /* Camera SLR Overlay */
+  #camera-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 22;
+    pointer-events: none;
+    display: none;
+    border: 12px solid rgba(10, 8, 9, 0.85);
+    box-shadow: inset 0 0 60px rgba(0,0,0,0.85);
+  }
+  #camera-overlay.active {
+    display: block;
+  }
+  .cam-hud-top {
+    position: absolute;
+    top: 12px;
+    left: 16px;
+    right: 16px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #fca5a5;
+    font-weight: 600;
+  }
+  #flash-whiteout {
+    position: fixed;
+    inset: 0;
+    z-index: 26;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease-out;
+  }
+
+  /* Mobile Pull-Down Drawer */
+  #mobile-pull-handle {
+    display: none;
+    position: fixed;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 35;
+    background: rgba(20, 11, 15, 0.92);
+    border: 1px solid rgba(251, 113, 133, 0.45);
+    color: #fecdd3;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 3px 12px;
+    border-radius: 999px;
+    touch-action: none;
+  }
+  body.is-mobile #mobile-pull-handle {
+    display: block;
+  }
+
+  #mobile-pull-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 34;
+    background: rgba(13, 8, 11, 0.96);
+    border-bottom: 1px solid rgba(225, 29, 72, 0.5);
+    padding: 14px 14px 18px;
+    transform: translateY(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.85);
+  }
+  #mobile-pull-drawer.open {
+    transform: translateY(0);
+  }
+  .drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: #fecdd3;
+  }
+  .drawer-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .drawer-btn {
+    background: rgba(28, 16, 22, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #f5f5f4;
+    border-radius: 6px;
+    padding: 9px 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+  }
+  .drawer-btn:active {
+    background: rgba(159, 18, 57, 0.6);
+  }
+
+  /* Improved Compact Touch Controls */
+  #touch-controls {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 15;
+    pointer-events: none;
+  }
+  body.touch-active #touch-controls.active {
+    display: block;
+  }
+  #joystick-zone {
+    pointer-events: auto;
+    position: fixed;
+    left: 14px;
+    bottom: 14px;
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background: rgba(15, 10, 13, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    touch-action: none;
+  }
+  #joystick-knob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 30px;
+    height: 30px;
+    margin-left: -15px;
+    margin-top: -15px;
+    border-radius: 50%;
+    background: rgba(225, 29, 72, 0.76);
+    border: 1px solid rgba(255,255,255,0.45);
+  }
+  .touch-pad-right {
+    pointer-events: auto;
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    display: grid;
+    grid-template-columns: repeat(3, 42px);
+    gap: 5px;
+    touch-action: none;
+  }
+  .t-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 9px;
+    background: rgba(15, 10, 13, 0.74);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: #f5f5f4;
+    font-size: 0.62rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .t-btn:active, .t-btn.active-hold {
+    background: rgba(190, 18, 60, 0.85);
+    border-color: #fb7185;
+  }
+
+  /* Modals */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    background: rgba(5, 4, 6, 0.82);
+    backdrop-filter: blur(6px);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+  }
+  .modal-backdrop.open {
+    display: flex;
+  }
+  .modal-card {
+    width: min(760px, 96vw);
+    max-height: 88vh;
+    overflow-y: auto;
+    background: rgba(16, 11, 14, 0.96);
+    border: 1px solid rgba(190, 18, 60, 0.45);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+  }
+  .modal-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 10px;
+  }
+  .modal-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #fecdd3;
+  }
+  .close-x {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.78rem;
+  }
+  .close-x:hover, .close-x.xbox-focus {
+    border-color: #fb7185;
+    background: rgba(136, 19, 55, 0.5);
+  }
+
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .setting-box {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .setting-label {
+    display: block;
+    font-size: 0.78rem;
+    color: #d6d3d1;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  select, input[type="range"] {
+    width: 100%;
+    accent-color: #e11d48;
+  }
+  select {
+    background: #181115;
+    color: #f5f5f4;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 5px;
+    padding: 7px 8px;
+    font-size: 0.82rem;
+  }
+
+  .tabs-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .tab-btn {
+    padding: 7px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.04);
+    color: #d6d3d1;
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+  .tab-btn.active, .tab-btn.xbox-focus {
+    background: rgba(159, 18, 57, 0.55);
+    border-color: #fb7185;
+    color: #fff;
+  }
+  .clue-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 7px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  .clue-title {
+    font-weight: 700;
+    color: #fecdd3;
+    font-size: 0.86rem;
+    margin-bottom: 3px;
+  }
+  .clue-desc {
+    font-size: 0.8rem;
+    color: #d6d3d1;
+    line-height: 1.4;
+  }
+  .photo-thumb {
+    width: 100%;
+    max-width: 240px;
+    border-radius: 6px;
+    border: 2px solid #e7e5e4;
+    margin-top: 6px;
+  }
+  .board-pair {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body class="style-ps1">
+
+<canvas id="game-canvas"></canvas>
+<div id="vhs-scanlines"></div>
+<div id="chase-vignette"></div>
+<div id="flash-whiteout"></div>
+
+<!-- Loading Screen -->
+<div id="loading-screen">
+  <div class="load-brand">THE FINAL CASE</div>
+  <div class="load-sub">RAVEN CREEK • 1994</div>
+  <div class="load-bar-wrap"><div id="load-bar-fill"></div></div>
+  <div id="load-status">Preparando Raven Creek...</div>
+  <div id="load-tip">Alguns arquivos nunca foram fechados de verdade.</div>
+</div>
+
+<!-- Main Menu -->
+<div id="main-menu" class="hidden">
+  <div class="menu-top-row">
+    <div id="device-indicator" class="device-badge">Aparelho: Verificando...</div>
+    <div id="voice-indicator" class="device-badge">Voz PT-BR</div>
+  </div>
+
+  <div class="menu-title-block">
+    <div class="menu-kicker">Raven Creek • 1994</div>
+    <h1 class="menu-title">THE FINAL CASE</h1>
+    <div class="menu-buttons" id="main-menu-buttons">
+      <button class="game-btn menu-nav" id="btn-new-game">NOVO JOGO</button>
+      <button class="game-btn menu-nav" id="btn-continue-game" disabled>CONTINUAR</button>
+      <button class="game-btn secondary menu-nav" id="btn-open-settings">CONFIGURAÇÕES</button>
+      <button class="game-btn secondary menu-nav" id="btn-open-credits">CRÉDITOS</button>
+    </div>
+  </div>
+
+  <div></div>
+</div>
+
+<!-- Mobile Pull Handle & Drawer -->
+<div id="mobile-pull-handle">▾ OPÇÕES</div>
+<div id="mobile-pull-drawer">
+  <div class="drawer-header">
+    <span>RAVEN CREEK</span>
+    <button class="close-x" id="btn-close-drawer">FECHAR ✕</button>
+  </div>
+  <div class="drawer-grid">
+    <button class="drawer-btn" id="drawer-dossier">DOSSIÊ</button>
+    <button class="drawer-btn" id="drawer-map">MAPA</button>
+    <button class="drawer-btn" id="drawer-camera">CÂMERA</button>
+    <button class="drawer-btn" id="drawer-flashlight">LANTERNA</button>
+    <button class="drawer-btn" id="drawer-crouch">AGACHAR</button>
+    <button class="drawer-btn" id="drawer-touch-toggle">TOUCH</button>
+    <button class="drawer-btn" id="drawer-save">SALVAR</button>
+    <button class="drawer-btn" id="drawer-settings">OPÇÕES</button>
+    <button class="drawer-btn" id="drawer-pause">PAUSA</button>
+  </div>
+</div>
+
+<!-- Gameplay HUD -->
+<div id="hud">
+  <div class="hud-top">
+    <div class="hud-chip">
+      <div class="hud-loc" id="hud-location">Rua Principal de Raven Creek</div>
+      <div class="hud-obj" id="hud-objective">Investigue Raven Creek.</div>
+    </div>
+
+    <div class="hud-right-cluster">
+      <div class="hud-actions-top">
+        <button class="hud-mini-btn hud-nav" id="hud-btn-dossier">Dossiê</button>
+        <button class="hud-mini-btn hud-nav" id="hud-btn-camera">Câmera</button>
+        <button class="hud-mini-btn hud-nav" id="hud-btn-flashlight">Lanterna</button>
+        <button class="hud-mini-btn hud-nav" id="hud-btn-pause">Pausa</button>
+      </div>
+      <div id="minimap-box">
+        <canvas id="minimap-canvas" width="116" height="116"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-msg">
+    <span id="toast-text"></span>
+    <button class="close-msg-btn" id="btn-close-toast">✕</button>
+  </div>
+
+  <div id="crosshair"></div>
+  <div id="interact-prompt">Interagir</div>
+
+  <div id="subtitle-box">
+    <div class="sub-header">
+      <div class="sub-speaker" id="sub-speaker">DANIEL VANCE</div>
+      <button class="close-msg-btn" id="btn-close-subtitle">✕</button>
+    </div>
+    <div class="sub-body" id="sub-text"></div>
+    <div class="sub-footer">
+      <button id="voice-replay-btn">Ouvir Novamente</button>
+    </div>
+  </div>
+</div>
+
+<!-- Camera Overlay -->
+<div id="camera-overlay">
+  <div class="cam-hud-top">
+    <span id="cam-zoom-txt">SLR 35mm</span>
+    <span id="cam-photos-txt">FOTOS: 0</span>
+  </div>
+</div>
+
+<!-- Touch Controls -->
+<div id="touch-controls">
+  <div id="joystick-zone"><div id="joystick-knob"></div></div>
+  <div class="touch-pad-right">
+    <button class="t-btn" id="t-interact">AGIR</button>
+    <button class="t-btn" id="t-light">LUZ</button>
+    <button class="t-btn" id="t-cam">FOTO</button>
+    <button class="t-btn" id="t-run">CORRER</button>
+    <button class="t-btn" id="t-crouch">AGACHAR</button>
+    <button class="t-btn" id="t-dossier">PASTA</button>
+  </div>
+</div>
+
+<!-- Pause Modal -->
+<div class="modal-backdrop" id="pause-modal">
+  <div class="modal-card">
+    <div class="modal-top">
+      <div class="modal-title">PAUSA</div>
+      <button class="close-x modal-nav" id="btn-resume">CONTINUAR</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:340px;">
+      <button class="game-btn modal-nav" id="pause-resume-btn">CONTINUAR</button>
+      <button class="game-btn secondary modal-nav" id="pause-save-btn">SALVAR PROGRESSO</button>
+      <button class="game-btn secondary modal-nav" id="pause-settings-btn">CONFIGURAÇÕES</button>
+      <button class="game-btn secondary modal-nav" id="pause-menu-btn">MENU PRINCIPAL</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-backdrop" id="settings-modal">
+  <div class="modal-card">
+    <div class="modal-top">
+      <div class="modal-title">CONFIGURAÇÕES</div>
+      <button class="close-x modal-nav" id="btn-close-settings">FECHAR</button>
+    </div>
+    <div class="settings-grid">
+      <div class="setting-box">
+        <label class="setting-label" for="opt-preset">Predefinição Gráfica</label>
+        <select id="opt-preset" class="modal-nav">
+          <option value="low">Baixo</option>
+          <option value="medium" selected>Médio</option>
+          <option value="high">Alto</option>
+          <option value="ultra">Ultra</option>
+        </select>
+      </div>
+      <div class="setting-box">
+        <label class="setting-label" for="opt-visual-style">Estilo Gráfico</label>
+        <select id="opt-visual-style" class="modal-nav">
+          <option value="ps1" selected>PS1 Clássico</option>
+          <option value="realistic">Realista</option>
+          <option value="atmospheric">Atmosférico</option>
+          <option value="noir">Noir</option>
+          <option value="vhs">VHS 90s</option>
+        </select>
+      </div>
+      <div class="setting-box">
+        <label class="setting-label" for="opt-resolution">Resolução (<span id="val-res">100%</span>)</label>
+        <input type="range" id="opt-resolution" class="modal-nav" min="50" max="125" step="5" value="100">
+      </div>
+      <div class="setting-box">
+        <label class="setting-label" for="opt-fog">Neblina</label>
+        <select id="opt-fog" class="modal-nav">
+          <option value="on" selected>Ativada</option>
+          <option value="heavy">Pesada</option>
+          <option value="off">Desativada</option>
+        </select>
+      </div>
+      <div class="setting-box">
+        <label class="setting-label" for="opt-vol-master">Volume Geral (<span id="val-vol-master">80%</span>)</label>
+        <input type="range" id="opt-vol-master" class="modal-nav" min="0" max="100" value="80">
+      </div>
+      <div class="setting-box">
+        <label class="setting-label" for="opt-vol-voice">Vozes PT-BR (<span id="val-vol-voice">100%</span>)</label>
+        <input type="range" id="opt-vol-voice" class="modal-nav" min="0" max="100" value="100">
+      </div>
+      <div class="setting-box">
+        <label class="setting-label" for="opt-vol-sfx">Lanterna & Passos (<span id="val-vol-sfx">90%</span>)</label>
+        <input type="range" id="opt-vol-sfx" class="modal-nav" min="0" max="100" value="90">
+      </div>
+      <div class="setting-box">
+        <label class="setting-label" for="opt-vol-music">Música (<span id="val-vol-music">65%</span>)</label>
+        <input type="range" id="opt-vol-music" class="modal-nav" min="0" max="100" value="65">
+      </div>
+      <div class="setting-box">
+        <label class="setting-label" for="opt-xbox-mode">Controle Xbox</label>
+        <select id="opt-xbox-mode" class="modal-nav">
+          <option value="auto" selected>Somente no Xbox</option>
+          <option value="force">Forçar Xbox</option>
+          <option value="off">Desativado</option>
+        </select>
+      </div>
+      <div class="setting-box">
+        <label class="setting-label" for="opt-hud">Interface (<span id="val-hud">100%</span>)</label>
+        <input type="range" id="opt-hud" class="modal-nav" min="50" max="130" step="5" value="100">
+      </div>
+    </div>
+    <button class="game-btn secondary modal-nav" id="btn-test-voice" style="width:auto;padding:9px 16px;">TESTAR VOZ PT-BR</button>
+  </div>
+</div>
+
+<!-- Dossier Modal -->
+<div class="modal-backdrop" id="dossier-modal">
+  <div class="modal-card">
+    <div class="modal-top">
+      <div class="modal-title">DOSSIÊ</div>
+      <button class="close-x modal-nav" id="btn-close-dossier">FECHAR</button>
+    </div>
+    <div class="tabs-bar">
+      <button class="tab-btn active modal-nav" data-tab="clues">Pistas</button>
+      <button class="tab-btn modal-nav" data-tab="photos">Fotos</button>
+      <button class="tab-btn modal-nav" data-tab="board">Mural</button>
+      <button class="tab-btn modal-nav" data-tab="map">Mapa</button>
+    </div>
+    <div id="dossier-content"></div>
+  </div>
+</div>
+
+<!-- Credits Modal -->
+<div class="modal-backdrop" id="credits-modal">
+  <div class="modal-card">
+    <div class="modal-top">
+      <div class="modal-title">CRÉDITOS</div>
+      <button class="close-x modal-nav" id="btn-close-credits">FECHAR</button>
+    </div>
+    <p style="font-size:0.88rem;line-height:1.65;color:#d6d3d1;">
+      <strong>THE FINAL CASE</strong> — Raven Creek (1994)<br>
+      Motor 3D: Three.js • Áudio: Web Audio API & Voz PT-BR
+    </p>
+  </div>
+</div>
+
+<!-- Ending Modal -->
+<div class="modal-backdrop" id="ending-modal">
+  <div class="modal-card">
+    <div class="modal-top">
+      <div class="modal-title" id="ending-title">ENCERRAMENTO</div>
+      <button class="close-x modal-nav" id="btn-ending-menu">MENU PRINCIPAL</button>
+    </div>
+    <p id="ending-text" style="font-size:0.9rem;line-height:1.65;color:#e7e5e4;margin-bottom:16px;"></p>
+    <button class="game-btn modal-nav" id="btn-ending-replay">JOGAR NOVAMENTE</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const SAVE_KEY = 'THE_FINAL_CASE_SAVE_V3';
+  const SETTINGS_KEY = 'THE_FINAL_CASE_SETTINGS_V3';
+
+  function detectDevice() {
+    const ua = navigator.userAgent || '';
+    const platform = navigator.platform || '';
+    const isXbox = /xbox/i.test(ua) || /xbox/i.test(platform);
+    const isMobileUA = /Android|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+    const isTabletUA = /iPad|Tablet|PlayBook/i.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+    let label = 'PC';
+    if (isXbox) label = 'Xbox';
+    else if (isMobileUA) label = /iPhone|iPod/i.test(ua) ? 'iPhone' : 'Android';
+    else if (isTabletUA) label = 'Tablet';
+
+    return { isXbox, isMobile: isMobileUA, isTablet: isTabletUA, hasTouch, label };
+  }
+
+  const deviceInfo = detectDevice();
+
+  const defaultSettings = {
+    preset: 'medium',
+    visualStyle: 'ps1',
+    resolution: 100,
+    fog: 'on',
+    volMaster: 80,
+    volVoice: 100,
+    volSfx: 90,
+    volMusic: 65,
+    xboxMode: 'auto',
+    hudScale: deviceInfo.isMobile ? 90 : 100
+  };
+
+  let settings = Object.assign({}, defaultSettings);
+  try {
+    const savedSet = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
+    if (savedSet) settings = Object.assign({}, defaultSettings, savedSet);
+  } catch (e) {}
+
+  function isXboxActive() {
+    if (settings.xboxMode === 'off') return false;
+    if (settings.xboxMode === 'force') return true;
+    return deviceInfo.isXbox;
+  }
+
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+  }
+
+  const AudioEngine = {
+    ctx: null,
+    masterGain: null,
+    sfxGain: null,
+    musicGain: null,
+    musicInterval: null,
+    musicMode: 'none',
+
+    init() {
+      if (!this.ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        this.ctx = new AC();
+        this.masterGain = this.ctx.createGain();
+        this.sfxGain = this.ctx.createGain();
+        this.musicGain = this.ctx.createGain();
+        this.sfxGain.connect(this.masterGain);
+        this.musicGain.connect(this.masterGain);
+        this.masterGain.connect(this.ctx.destination);
+        this.applyVolumes();
+      }
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+    },
+
+    applyVolumes() {
+      if (!this.ctx) return;
+      this.masterGain.gain.setTargetAtTime(settings.volMaster / 100, this.ctx.currentTime, 0.03);
+      this.sfxGain.gain.setTargetAtTime(settings.volSfx / 100, this.ctx.currentTime, 0.03);
+      this.musicGain.gain.setTargetAtTime(settings.volMusic / 100, this.ctx.currentTime, 0.03);
+    },
+
+    playClick(type = 'tap') {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const len = Math.floor(this.ctx.sampleRate * 0.022);
+      const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.25));
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = type === 'confirm' ? 1850 : (type === 'back' ? 1100 : 1500);
+      bp.Q.value = 3.5;
+
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.18, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.022);
+
+      src.connect(bp);
+      bp.connect(g);
+      g.connect(this.sfxGain);
+      src.start(now);
+    },
+
+    playFlashlightSwitch(isOn) {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      const makeClick = (offset, freq, dur, amp) => {
+        const t = now + offset;
+        const len = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
+        const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.22));
+        }
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buf;
+
+        const hp = this.ctx.createBiquadFilter();
+        hp.type = 'bandpass';
+        hp.frequency.setValueAtTime(freq, t);
+        hp.Q.value = 2.8;
+
+        const g = this.ctx.createGain();
+        g.gain.setValueAtTime(amp, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+        noise.connect(hp);
+        hp.connect(g);
+        g.connect(this.sfxGain);
+        noise.start(t);
+      };
+
+      if (isOn) {
+        makeClick(0.0, 2100, 0.018, 0.45);
+        makeClick(0.022, 3200, 0.026, 0.35);
+      } else {
+        makeClick(0.0, 1750, 0.02, 0.42);
+        makeClick(0.028, 1250, 0.024, 0.28);
+      }
+    },
+
+    playFootstep(isIndoor, isRunning) {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      const scrapeDur = isRunning ? 0.075 : 0.095;
+      const sLen = Math.floor(this.ctx.sampleRate * scrapeDur);
+      const sBuf = this.ctx.createBuffer(1, sLen, this.ctx.sampleRate);
+      const sData = sBuf.getChannelData(0);
+      for (let i = 0; i < sLen; i++) {
+        const env = Math.sin((i / sLen) * Math.PI);
+        sData[i] = (Math.random() * 2 - 1) * env;
+      }
+      const sSrc = this.ctx.createBufferSource();
+      sSrc.buffer = sBuf;
+
+      const sFilter = this.ctx.createBiquadFilter();
+      sFilter.type = 'bandpass';
+      sFilter.frequency.value = isIndoor ? (780 + Math.random() * 180) : (1150 + Math.random() * 350);
+      sFilter.Q.value = 1.4;
+
+      const sGain = this.ctx.createGain();
+      sGain.gain.setValueAtTime(isRunning ? 0.28 : 0.14, now);
+      sGain.gain.exponentialRampToValueAtTime(0.001, now + scrapeDur);
+
+      sSrc.connect(sFilter);
+      sFilter.connect(sGain);
+      sGain.connect(this.sfxGain);
+      sSrc.start(now);
+
+      const thudDur = isRunning ? 0.08 : 0.09;
+      const tLen = Math.floor(this.ctx.sampleRate * thudDur);
+      const tBuf = this.ctx.createBuffer(1, tLen, this.ctx.sampleRate);
+      const tData = tBuf.getChannelData(0);
+      for (let i = 0; i < tLen; i++) {
+        tData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (tLen * 0.25));
+      }
+      const tSrc = this.ctx.createBufferSource();
+      tSrc.buffer = tBuf;
+
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = isRunning ? (230 + Math.random() * 50) : (165 + Math.random() * 35);
+
+      const tGain = this.ctx.createGain();
+      tGain.gain.setValueAtTime(isRunning ? 0.45 : 0.22, now);
+      tGain.gain.exponentialRampToValueAtTime(0.001, now + thudDur);
+
+      tSrc.connect(lp);
+      lp.connect(tGain);
+      tGain.connect(this.sfxGain);
+      tSrc.start(now);
+    },
+
+    playCameraShot() {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const len = Math.floor(this.ctx.sampleRate * 0.055);
+      const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.22));
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1900;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.42, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
+      src.connect(bp);
+      bp.connect(g);
+      g.connect(this.sfxGain);
+      src.start(now);
+    },
+
+    setMusicMode(mode) {
+      if (this.musicMode === mode) return;
+      this.musicMode = mode;
+      if (this.musicInterval) {
+        clearInterval(this.musicInterval);
+        this.musicInterval = null;
+      }
+      if (mode === 'none') return;
+
+      const patterns = {
+        exploration: [65.41, 73.42, 87.31, 61.74],
+        mystery: [82.41, 110.0, 98.0, 73.42],
+        chase: [110.0, 116.54, 130.81, 110.0]
+      };
+      const notes = patterns[mode] || patterns.exploration;
+      const stepMs = mode === 'chase' ? 320 : (mode === 'mystery' ? 950 : 1400);
+      let idx = 0;
+
+      const tickNote = () => {
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter();
+        const gain = this.ctx.createGain();
+
+        osc.type = mode === 'chase' ? 'sawtooth' : 'triangle';
+        osc.frequency.setValueAtTime(notes[idx % notes.length], now);
+        idx++;
+
+        filter.type = 'lowpass';
+        filter.frequency.value = mode === 'chase' ? 480 : 220;
+
+        const peak = mode === 'chase' ? 0.11 : 0.065;
+        const dur = mode === 'chase' ? 0.25 : 1.05;
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(peak, now + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.0008, now + dur);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.musicGain);
+        osc.start(now);
+        osc.stop(now + dur + 0.02);
+      };
+
+      tickNote();
+      this.musicInterval = setInterval(tickNote, stepMs);
+    }
+  };
+
+  const VoiceEngine = {
+    voices: [],
+    currentSpeaker: null,
+    lastUtterance: null,
+    speakingTimer: null,
+
+    refreshVoices() {
+      if ('speechSynthesis' in window) {
+        try {
+          this.voices = window.speechSynthesis.getVoices() || [];
+        } catch (e) {
+          this.voices = [];
+        }
+      }
+    },
+
+    pickPtBrVoice(preferFemale = false) {
+      this.refreshVoices();
+      const ptBr = this.voices.filter(v => /pt[-_]?br/i.test(v.lang) || /portugu[eê]s.*brasil/i.test(v.name));
+      if (ptBr.length > 0) {
+        if (preferFemale) {
+          const fem = ptBr.find(v => /maria|camila|luciana|fernanda|vit[oó]ria|francisca|let[ií]cia|female/i.test(v.name));
+          if (fem) return fem;
+        } else {
+          const masc = ptBr.find(v => /daniel|felipe|ricardo|antonio|male/i.test(v.name));
+          if (masc) return masc;
+        }
+        return ptBr[0];
+      }
+      const anyPt = this.voices.filter(v => /^pt/i.test(v.lang));
+      return anyPt[0] || null;
+    },
+
+    stopSpeech() {
+      this.currentSpeaker = null;
+      clearTimeout(this.speakingTimer);
+      if ('speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch (e) {}
+      }
+    },
+
+    speak(speaker, text, profile = {}) {
+      const subBox = document.getElementById('subtitle-box');
+      const subSpeaker = document.getElementById('sub-speaker');
+      const subText = document.getElementById('sub-text');
+
+      this.lastUtterance = { speaker, text, profile };
+      subSpeaker.textContent = speaker || 'DANIEL VANCE';
+      subText.textContent = text;
+      subBox.classList.add('visible');
+      this.currentSpeaker = speaker;
+
+      clearTimeout(this.speakingTimer);
+      const estMs = Math.max(2500, Math.min(11000, text.length * 72));
+      this.speakingTimer = setTimeout(() => {
+        this.currentSpeaker = null;
+      }, estMs);
+
+      const voiceVol = settings.volVoice / 100;
+      if (voiceVol <= 0.01 || !('speechSynthesis' in window)) return;
+
+      try {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        const chosen = this.pickPtBrVoice(Boolean(profile.female));
+        if (chosen) {
+          utter.voice = chosen;
+          utter.lang = chosen.lang;
+        } else {
+          utter.lang = 'pt-BR';
+        }
+        utter.volume = Math.min(1, voiceVol);
+        utter.rate = profile.rate || 0.96;
+        utter.pitch = profile.pitch || 0.96;
+
+        utter.onend = () => {
+          this.currentSpeaker = null;
+        };
+        utter.onerror = () => {
+          this.currentSpeaker = null;
+        };
+
+        window.speechSynthesis.speak(utter);
+      } catch (e) {
+        this.currentSpeaker = null;
+      }
+    },
+
+    replayLast() {
+      if (this.lastUtterance) {
+        AudioEngine.playClick('confirm');
+        this.speak(this.lastUtterance.speaker, this.lastUtterance.text, this.lastUtterance.profile);
+      }
+    }
+  };
+
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = () => VoiceEngine.refreshVoices();
+  }
+
+  const canvas = document.getElementById('game-canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x090b10);
+  const fog = new THREE.FogExp2(0x0c0e14, 0.022);
+  scene.fog = fog;
+
+  const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.15, 180);
+
+  const MENU_CAM_POS = new THREE.Vector3(0, 3.2, 42);
+  const MENU_CAM_LOOK = new THREE.Vector3(0, 3.0, -20);
+  camera.position.copy(MENU_CAM_POS);
+  camera.lookAt(MENU_CAM_LOOK);
+
+  const ambientLight = new THREE.AmbientLight(0x283246, 0.75);
+  scene.add(ambientLight);
+
+  const moonLight = new THREE.DirectionalLight(0x6b82b8, 0.78);
+  moonLight.position.set(28, 45, 20);
+  moonLight.castShadow = true;
+  scene.add(moonLight);
+
+  const flashlight = new THREE.SpotLight(0xfff1d6, 2.8, 38, Math.PI / 5.2, 0.45, 1.3);
+  flashlight.position.set(0, 0, 0);
+  const flashlightTarget = new THREE.Object3D();
+  flashlightTarget.position.set(0, 0, -10);
+  camera.add(flashlight);
+  camera.add(flashlightTarget);
+  flashlight.target = flashlightTarget;
+  scene.add(camera);
+  let flashlightOn = true;
+
+  const matRoad = new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.9 });
+  const matSidewalk = new THREE.MeshStandardMaterial({ color: 0x2c2e33, roughness: 0.85 });
+  const matGrass = new THREE.MeshStandardMaterial({ color: 0x111c14, roughness: 0.95 });
+  const matWood = new THREE.MeshStandardMaterial({ color: 0x3a2618, roughness: 0.85 });
+  const matBrick = new THREE.MeshStandardMaterial({ color: 0x3b1f1e, roughness: 0.88 });
+  const matConcrete = new THREE.MeshStandardMaterial({ color: 0x33363b, roughness: 0.85 });
+  const matClueGlow = new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0x92400e, roughness: 0.4 });
+  const matHideSpot = new THREE.MeshStandardMaterial({ color: 0x291d18, roughness: 0.8 });
+
+  const colliders = [];
+  const interactables = [];
+  const npcs = [];
+  const streetLamps = [];
+
+  function addCollider(minX, maxX, minZ, maxZ) {
+    colliders.push({ minX, maxX, minZ, maxZ });
+  }
+
+  function isPositionBlocked(nx, nz, radius = 0.45) {
+    if (Math.abs(nx) > 52 || nz > 48 || nz < -86) return true;
+    for (let i = 0; i < colliders.length; i++) {
+      const c = colliders[i];
+      if (nx + radius > c.minX && nx - radius < c.maxX && nz + radius > c.minZ && nz - radius < c.maxZ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), matGrass);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  const mainRoad = new THREE.Mesh(new THREE.PlaneGeometry(14, 150), matRoad);
+  mainRoad.rotation.x = -Math.PI / 2;
+  mainRoad.position.set(0, 0.02, -5);
+  mainRoad.receiveShadow = true;
+  scene.add(mainRoad);
+
+  const crossRoad = new THREE.Mesh(new THREE.PlaneGeometry(110, 12), matRoad);
+  crossRoad.rotation.x = -Math.PI / 2;
+  crossRoad.position.set(0, 0.02, -18);
+  crossRoad.receiveShadow = true;
+  scene.add(crossRoad);
+
+  [-9.5, 9.5].forEach(x => {
+    const sw = new THREE.Mesh(new THREE.BoxGeometry(5, 0.14, 120), matSidewalk);
+    sw.position.set(x, 0.07, -8);
+    sw.receiveShadow = true;
+    scene.add(sw);
+  });
+
+  function createStreetLamp(x, z) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 5.2, 8), matConcrete);
+    pole.position.set(x, 2.6, z);
+    scene.add(pole);
+
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffd28a }));
+    bulb.position.set(x, 5.2, z);
+    scene.add(bulb);
+
+    const pt = new THREE.PointLight(0xffb86c, 1.35, 16, 1.6);
+    pt.position.set(x, 5.0, z);
+    scene.add(pt);
+    streetLamps.push({ pt, base: 1.35, phase: Math.random() * 10 });
+  }
+
+  [-6.8, 6.8].forEach(x => {
+    [-35, -10, 14, 34].forEach(z => createStreetLamp(x, z));
+  });
+
+  function createBuilding(name, x, z, w, d, h, wallMat) {
+    const grp = new THREE.Group();
+    grp.position.set(x, 0, z);
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+    body.position.y = h / 2;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    grp.add(body);
+
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.72, 2.4, 4), matWood);
+    roof.position.y = h + 1.2;
+    roof.rotation.y = Math.PI / 4;
+    grp.add(roof);
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.6, 0.25), matWood);
+    door.position.set(0, 1.3, d / 2 + 0.08);
+    grp.add(door);
+
+    scene.add(grp);
+    addCollider(x - w / 2, x + w / 2, z - d / 2, z + d / 2);
+    return { name, x, z, w, d };
+  }
+
+  const buildings = [
+    createBuilding('Delegacia de Raven Creek', -20, -6, 12, 12, 5.2, matBrick),
+    createBuilding("Raven's Nest Diner", 20, -6, 13, 11, 4.6, matConcrete),
+    createBuilding('Residência Miller', -21, 16, 11, 11, 4.8, matWood),
+    createBuilding('Igreja São Judas', 21, 16, 12, 15, 7.5, matConcrete),
+    createBuilding('Pineview Motel', -22, -32, 14, 11, 4.4, matWood),
+    createBuilding('Oficina & Posto Hank', 22, -32, 13, 12, 4.5, matBrick),
+    createBuilding('Arquivo Municipal', -18, -54, 12, 11, 5.6, matConcrete),
+    createBuilding('Rádio KRC-94', 18, -54, 10, 10, 6.2, matBrick),
+    createBuilding('Cabana da Floresta', 0, -78, 10, 10, 4.2, matWood)
+  ];
+
+  const treeTrunkGeo = new THREE.CylinderGeometry(0.24, 0.36, 3.6, 6);
+  const treeCrownGeo = new THREE.ConeGeometry(2.1, 5.2, 7);
+  const matCrown = new THREE.MeshStandardMaterial({ color: 0x0c1f14, roughness: 0.95 });
+
+  for (let i = 0; i < 65; i++) {
+    const angle = (i / 65) * Math.PI * 2;
+    const dist = 42 + ((i * 17) % 38);
+    const tx = Math.cos(angle) * dist;
+    const tz = -22 + Math.sin(angle) * dist;
+    if (Math.abs(tx) < 8 && tz > -82 && tz < 46) continue;
+
+    const trunk = new THREE.Mesh(treeTrunkGeo, matWood);
+    trunk.position.set(tx, 1.8, tz);
+    const crown = new THREE.Mesh(treeCrownGeo, matCrown);
+    crown.position.set(tx, 5.6, tz);
+    scene.add(trunk, crown);
+    addCollider(tx - 0.4, tx + 0.4, tz - 0.4, tz + 0.4);
+  }
+
+  function createCharacterMesh(shirtColor, hairColor, hatColor = null) {
+    const root = new THREE.Group();
+    const shirtMat = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.8 });
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xc59b7d, roughness: 0.75 });
+    const hairMat = new THREE.MeshStandardMaterial({ color: hairColor, roughness: 0.9 });
+    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e222b, roughness: 0.85 });
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.88, 0.36), shirtMat);
+    torso.position.y = 1.25;
+    torso.castShadow = true;
+    root.add(torso);
+
+    const headGroup = new THREE.Group();
+    headGroup.position.y = 1.96;
+
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.44, 0.42), skinMat);
+    head.castShadow = true;
+    headGroup.add(head);
+
+    const hair = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.16, 0.45), hairMat);
+    hair.position.y = 0.21;
+    headGroup.add(hair);
+
+    if (hatColor) {
+      const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.42, 0.14, 10), new THREE.MeshStandardMaterial({ color: hatColor }));
+      hat.position.y = 0.28;
+      headGroup.add(hat);
+    }
+
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+    [-0.1, 0.1].forEach(ex => {
+      const eye = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.04), eyeMat);
+      eye.position.set(ex, 0.04, 0.21);
+      headGroup.add(eye);
+    });
+
+    const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.05, 0.04), new THREE.MeshBasicMaterial({ color: 0x3b0d14 }));
+    mouth.position.set(0, -0.09, 0.21);
+    headGroup.add(mouth);
+
+    root.add(headGroup);
+
+    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.8, 0.24), pantsMat);
+    leftLeg.position.set(-0.2, 0.4, 0);
+    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.8, 0.24), pantsMat);
+    rightLeg.position.set(0.2, 0.4, 0);
+    root.add(leftLeg, rightLeg);
+
+    const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.72, 0.22), shirtMat);
+    leftArm.position.set(-0.46, 1.3, 0);
+    const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.72, 0.22), shirtMat);
+    rightArm.position.set(0.46, 1.3, 0);
+    root.add(leftArm, rightArm);
+
+    scene.add(root);
+    return { root, headGroup, mouth, leftLeg, rightLeg, leftArm, rightArm };
+  }
+
+  const survivorsData = [
+    {
+      id: 'arthur',
+      name: 'Ex-Xerife Arthur',
+      startX: -11.0, startZ: -6.0,
+      waypoints: [
+        { x: -11.0, z: -6.0 },
+        { x: -11.0, z: 12.0 },
+        { x: -9.5, z: -18.0 },
+        { x: -11.0, z: -28.0 }
+      ],
+      shirt: 0x2c3e50, hair: 0x9ca3af, hat: 0x1f2937,
+      profile: { pitch: 0.76, rate: 0.94, female: false },
+      lines: [
+        'Daniel, a neblina esconde mais do que essas casas vazias. Olhe o arquivo ao norte.',
+        'Desde oitenta e seis ninguém dorme em paz por aqui.'
+      ]
+    },
+    {
+      id: 'clara',
+      name: 'Clara Vance',
+      startX: 11.0, startZ: -4.0,
+      waypoints: [
+        { x: 11.0, z: -4.0 },
+        { x: 11.0, z: 10.0 },
+        { x: 9.5, z: -18.0 },
+        { x: 11.0, z: -42.0 }
+      ],
+      shirt: 0x7f1d1d, hair: 0x451a03, hat: null,
+      profile: { pitch: 1.18, rate: 1.0, female: true },
+      lines: [
+        'Você não encerrou o caso de oitenta e seis, Daniel. Ele só esperou você voltar.',
+        'Há registros importantes perto do arquivo e da rádio.'
+      ]
+    },
+    {
+      id: 'thomas',
+      name: 'Padre Thomas',
+      startX: 9.5, startZ: 14.0,
+      waypoints: [
+        { x: 9.5, z: 14.0 },
+        { x: 9.5, z: 2.0 },
+        { x: 9.5, z: -16.0 }
+      ],
+      shirt: 0x18181b, hair: 0xd6d3d1, hat: null,
+      profile: { pitch: 0.85, rate: 0.92, female: false },
+      lines: [
+        'A culpa de Raven Creek pesa sobre todos que calaram.',
+        'A cabana ao fundo da estrada guarda o que foi escondido.'
+      ]
+    }
+  ];
+
+  survivorsData.forEach(s => {
+    const meshRig = createCharacterMesh(s.shirt, s.hair, s.hat);
+    meshRig.root.position.set(s.startX, 0, s.startZ);
+
+    const npcObj = {
+      data: s,
+      rig: meshRig,
+      wpIndex: 1,
+      pauseTimer: 0,
+      walkPhase: Math.random() * 6,
+      isMoving: false,
+      lineIdx: 0,
+      interactPos: new THREE.Vector3(s.startX, 1.4, s.startZ)
+    };
+    npcs.push(npcObj);
+
+    interactables.push({
+      id: 'npc_' + s.id,
+      getLabel: () => `Falar com ${s.name}`,
+      getPos: () => npcObj.rig.root.position,
+      onInteract: () => {
+        npcObj.pauseTimer = 5.0;
+        const line = s.lines[npcObj.lineIdx % s.lines.length];
+        npcObj.lineIdx++;
+        VoiceEngine.speak(s.name, line, s.profile);
+        gameState.talkedCount++;
+        checkProgression();
+      }
+    });
+  });
+
+  const cluesCatalog = [
+    {
+      id: 'clue_report_86',
+      title: 'Recorte de 1986',
+      category: 'Documentos',
+      desc: 'Reportagem antiga assinada por Daniel Vance sobre casos sem desfecho.',
+      pos: new THREE.Vector3(-4.2, 0.8, 6.0)
+    },
+    {
+      id: 'clue_archive_key',
+      title: 'Registro Municipal',
+      category: 'Evidências',
+      desc: 'Documento com transferências forçadas e referências ao antigo caso.',
+      pos: new THREE.Vector3(-12.5, 0.8, -50.0)
+    },
+    {
+      id: 'clue_radio_tape',
+      title: 'Fita KRC-94',
+      category: 'Gravações',
+      desc: 'Áudio gravado na madrugada mencionando o passado em Raven Creek.',
+      pos: new THREE.Vector3(13.0, 0.8, -50.0)
+    },
+    {
+      id: 'clue_cabin_ledger',
+      title: 'Pasta da Cabana Norte',
+      category: 'Objetos',
+      desc: 'Arquivos reunidos ligando o caso antigo aos acontecimentos atuais.',
+      pos: new THREE.Vector3(0.0, 0.8, -71.5)
+    }
+  ];
+
+  const clueMeshes = [];
+  cluesCatalog.forEach(c => {
+    const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), matClueGlow);
+    m.position.copy(c.pos);
+    scene.add(m);
+    clueMeshes.push({ clue: c, mesh: m });
+
+    interactables.push({
+      id: c.id,
+      getLabel: () => `Pegar: ${c.title}`,
+      getPos: () => c.pos,
+      onInteract: () => collectClue(c)
+    });
+  });
+
+  const hideSpotPos = new THREE.Vector3(5.2, 1.0, -14.0);
+  const hideMesh = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.2, 1.0), matHideSpot);
+  hideMesh.position.set(hideSpotPos.x, 1.1, hideSpotPos.z);
+  scene.add(hideMesh);
+  addCollider(hideSpotPos.x - 0.7, hideSpotPos.x + 0.7, hideSpotPos.z - 0.5, hideSpotPos.z + 0.5);
+
+  interactables.push({
+    id: 'hide_closet',
+    getLabel: () => gameState.hidden ? 'Sair' : 'Esconder',
+    getPos: () => hideSpotPos,
+    onInteract: () => toggleHide()
+  });
+
+  const killerRig = createCharacterMesh(0x14090c, 0x09090b, null);
+  killerRig.root.position.set(-28, 0, -45);
+  const killerState = {
+    active: false,
+    chasing: false,
+    pos: new THREE.Vector3(-28, 0, -45),
+    speed: 4.4
+  };
+
+  const gameState = {
+    started: false,
+    paused: false,
+    hidden: false,
+    cameraMode: false,
+    zoom: 1.0,
+    cluesFound: [],
+    photos: [],
+    connectedPairs: [],
+    visitedAreas: ['Rua Principal de Raven Creek'],
+    talkedCount: 0,
+    objective: 'Investigue Raven Creek.'
+  };
+
+  function showToast(msg) {
+    const el = document.getElementById('toast-msg');
+    document.getElementById('toast-text').textContent = msg;
+    el.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => el.classList.remove('show'), 3200);
+  }
+
+  function closeToast() {
+    clearTimeout(showToast._t);
+    document.getElementById('toast-msg').classList.remove('show');
+  }
+
+  function closeSubtitle() {
+    VoiceEngine.stopSpeech();
+    document.getElementById('subtitle-box').classList.remove('visible');
+  }
+
+  function collectClue(clue) {
+    if (gameState.cluesFound.includes(clue.id)) {
+      showToast('Já coletado.');
+      return;
+    }
+    gameState.cluesFound.push(clue.id);
+    const entry = clueMeshes.find(item => item.clue.id === clue.id);
+    if (entry) entry.mesh.visible = false;
+
+    AudioEngine.playClick('confirm');
+    showToast(clue.title);
+    VoiceEngine.speak('Daniel Vance', `Encontrei: ${clue.title}. Isso conecta as peças do caso.`, { pitch: 0.94, rate: 0.96, female: false });
+
+    if (gameState.cluesFound.length === 2) {
+      AudioEngine.setMusicMode('mystery');
+    }
+    checkProgression();
+    saveGame();
+  }
+
+  function toggleHide() {
+    gameState.hidden = !gameState.hidden;
+    AudioEngine.playClick('confirm');
+    if (gameState.hidden) {
+      camera.position.set(hideSpotPos.x, 1.45, hideSpotPos.z);
+      killerState.chasing = false;
+      AudioEngine.setMusicMode(gameState.cluesFound.length >= 2 ? 'mystery' : 'exploration');
+      showToast('Escondido.');
+    } else {
+      camera.position.set(hideSpotPos.x, 1.65, hideSpotPos.z + 1.4);
+      showToast('Visível.');
+    }
+  }
+
+  function checkProgression() {
+    if (gameState.cluesFound.length >= cluesCatalog.length) {
+      triggerEnding(true);
+    } else if (gameState.cluesFound.length >= 2 && gameState.talkedCount >= 2) {
+      gameState.objective = 'Siga ao norte até a cabana.';
+      killerState.active = true;
+      killerState.chasing = true;
+      AudioEngine.setMusicMode('chase');
+      VoiceEngine.speak('Sombra', 'Você não deveria ter voltado, Daniel.', { pitch: 0.7, rate: 0.9, female: false });
+    }
+  }
+
+  function triggerEnding(isTrueEnding) {
+    gameState.paused = true;
+    AudioEngine.setMusicMode('none');
+    const modal = document.getElementById('ending-modal');
+    const title = document.getElementById('ending-title');
+    const text = document.getElementById('ending-text');
+
+    if (isTrueEnding) {
+      title.textContent = 'FINAL I — A VERDADE DE RAVEN CREEK';
+      text.textContent = 'Com todas as provas reunidas, Daniel liga os assassinatos atuais ao caso antigo que investigou no passado e expõe o que foi encoberto em Raven Creek.';
+      VoiceEngine.speak('Daniel Vance', 'Agora tudo faz sentido. O caso finalmente veio à tona.', { pitch: 0.94, rate: 0.95, female: false });
+    } else {
+      title.textContent = 'FINAL II — SOMBRAS DE RAVEN CREEK';
+      text.textContent = 'Daniel escapa da cidade, mas parte da verdade sobre o passado e os crimes de Raven Creek continua oculta.';
+      VoiceEngine.speak('Daniel Vance', 'Saí daqui, mas o caso ficou aberto.', { pitch: 0.94, rate: 0.96, female: false });
+    }
+    modal.classList.add('open');
+  }
+
+  function saveGame() {
+    if (!gameState.started) return;
+    try {
+      const payload = {
+        pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        cluesFound: gameState.cluesFound,
+        photos: gameState.photos,
+        connectedPairs: gameState.connectedPairs,
+        visitedAreas: gameState.visitedAreas,
+        talkedCount: gameState.talkedCount,
+        objective: gameState.objective
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+      refreshContinueButton();
+    } catch (e) {}
+  }
+
+  function loadGame() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+      if (!raw) return false;
+      gameState.cluesFound = raw.cluesFound || [];
+      gameState.photos = raw.photos || [];
+      gameState.connectedPairs = raw.connectedPairs || [];
+      gameState.visitedAreas = raw.visitedAreas || ['Rua Principal de Raven Creek'];
+      gameState.talkedCount = raw.talkedCount || 0;
+      gameState.objective = raw.objective || gameState.objective;
+
+      clueMeshes.forEach(item => {
+        item.mesh.visible = !gameState.cluesFound.includes(item.clue.id);
+      });
+
+      if (raw.pos) {
+        camera.position.set(raw.pos.x, raw.pos.y || 1.65, raw.pos.z);
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function refreshContinueButton() {
+    const btn = document.getElementById('btn-continue-game');
+    try {
+      btn.disabled = !localStorage.getItem(SAVE_KEY);
+    } catch (e) {
+      btn.disabled = true;
+    }
+  }
+
+  function takePhoto() {
+    AudioEngine.playCameraShot();
+    const flash = document.getElementById('flash-whiteout');
+    flash.style.opacity = '0.9';
+    setTimeout(() => { flash.style.opacity = '0'; }, 80);
+
+    const lightBoost = new THREE.PointLight(0xffffff, 8, 18);
+    lightBoost.position.copy(camera.position);
+    scene.add(lightBoost);
+    renderer.render(scene, camera);
+
+    let dataUrl = '';
+    try {
+      dataUrl = canvas.toDataURL('image/jpeg', 0.65);
+    } catch (e) {}
+    scene.remove(lightBoost);
+
+    const loc = getCurrentAreaName();
+    gameState.photos.push({
+      id: 'photo_' + Date.now(),
+      caption: loc,
+      img: dataUrl
+    });
+    document.getElementById('cam-photos-txt').textContent = `FOTOS: ${gameState.photos.length}`;
+    showToast('Foto salva no dossiê.');
+    saveGame();
+  }
+
+  const keys = {};
+  let yaw = 0;
+  let pitch = 0;
+  let isCrouching = false;
+  let stepTimer = 0;
+  let bobTime = 0;
+
+  function getCurrentAreaName() {
+    const x = camera.position.x;
+    const z = camera.position.z;
+    for (const b of buildings) {
+      if (Math.abs(x - b.x) < b.w * 0.85 && Math.abs(z - b.z) < b.d * 0.85) {
+        return b.name;
+      }
+    }
+    if (z < -62) return 'Estrada Norte';
+    if (Math.abs(z + 18) < 7) return 'Rua Lateral';
+    return 'Rua Principal';
+  }
+
+  function findNearestInteractable() {
+    let best = null;
+    let bestDist = 3.4;
+    for (const item of interactables) {
+      if (item.id.startsWith('clue_')) {
+        const cid = item.id.replace('clue_', '');
+        if (gameState.cluesFound.includes(cid)) continue;
+      }
+      const p = item.getPos();
+      const d = Math.hypot(camera.position.x - p.x, camera.position.z - p.z);
+      if (d < bestDist) {
+        bestDist = d;
+        best = item;
+      }
+    }
+    return best;
+  }
+
+  function triggerInteract() {
+    if (!gameState.started || gameState.paused) return;
+    if (gameState.cameraMode) {
+      takePhoto();
+      return;
+    }
+    const target = findNearestInteractable();
+    if (target) {
+      target.onInteract();
+    } else {
+      showToast('Nada por perto.');
+    }
+  }
+
+  const minimapCanvas = document.getElementById('minimap-canvas');
+  const minimapCtx = minimapCanvas.getContext('2d');
+
+  function drawMinimap() {
+    const w = minimapCanvas.width;
+    const h = minimapCanvas.height;
+    minimapCtx.clearRect(0, 0, w, h);
+
+    minimapCtx.fillStyle = '#0c0b0e';
+    minimapCtx.fillRect(0, 0, w, h);
+
+    const cx = w / 2;
+    const cy = h / 2;
+    const scale = 1.05;
+
+    const toMapX = wx => cx + (wx - camera.position.x) * scale;
+    const toMapY = wz => cy + (wz - camera.position.z) * scale;
+
+    minimapCtx.fillStyle = '#272a32';
+    minimapCtx.fillRect(toMapX(-7), toMapY(-85), 14 * scale, 135 * scale);
+    minimapCtx.fillRect(toMapX(-50), toMapY(-24), 100 * scale, 12 * scale);
+
+    minimapCtx.fillStyle = '#57534e';
+    buildings.forEach(b => {
+      minimapCtx.fillRect(
+        toMapX(b.x - b.w / 2),
+        toMapY(b.z - b.d / 2),
+        b.w * scale,
+        b.d * scale
+      );
+    });
+
+    minimapCtx.fillStyle = '#fbbf24';
+    clueMeshes.forEach(c => {
+      if (!c.mesh.visible) return;
+      minimapCtx.beginPath();
+      minimapCtx.arc(toMapX(c.clue.pos.x), toMapY(c.clue.pos.z), 2.5, 0, Math.PI * 2);
+      minimapCtx.fill();
+    });
+
+    minimapCtx.fillStyle = '#38bdf8';
+    npcs.forEach(n => {
+      minimapCtx.beginPath();
+      minimapCtx.arc(toMapX(n.rig.root.position.x), toMapY(n.rig.root.position.z), 2.5, 0, Math.PI * 2);
+      minimapCtx.fill();
+    });
+
+    minimapCtx.save();
+    minimapCtx.translate(cx, cy);
+    minimapCtx.rotate(-yaw);
+    minimapCtx.fillStyle = '#f43f5e';
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(0, -5);
+    minimapCtx.lineTo(4, 4);
+    minimapCtx.lineTo(-4, 4);
+    minimapCtx.closePath();
+    minimapCtx.fill();
+    minimapCtx.restore();
+  }
+
+  function openModal(id) {
+    AudioEngine.playClick('confirm');
+    document.getElementById(id).classList.add('open');
+    gameState.paused = true;
+    if (document.pointerLockElement) document.exitPointerLock();
+    updateXboxFocusList();
+  }
+
+  function closeModal(id) {
+    AudioEngine.playClick('back');
+    document.getElementById(id).classList.remove('open');
+    const anyOpen = document.querySelector('.modal-backdrop.open');
+    if (!anyOpen && gameState.started && !document.getElementById('ending-modal').classList.contains('open')) {
+      gameState.paused = false;
+    }
+    updateXboxFocusList();
+  }
+
+  let currentDossierTab = 'clues';
+  function renderDossier(tabName) {
+    if (tabName) currentDossierTab = tabName;
+    document.querySelectorAll('#dossier-modal .tab-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === currentDossierTab);
+    });
+
+    const box = document.getElementById('dossier-content');
+    if (currentDossierTab === 'clues') {
+      if (gameState.cluesFound.length === 0) {
+        box.innerHTML = '<div class="clue-item"><div class="clue-desc">Nenhuma pista coletada.</div></div>';
+        return;
+      }
+      box.innerHTML = gameState.cluesFound.map(id => {
+        const c = cluesCatalog.find(x => x.id === id);
+        if (!c) return '';
+        return `<div class="clue-item"><div class="clue-title">${c.title}</div><div class="clue-desc">${c.desc}</div></div>`;
+      }).join('');
+    } else if (currentDossierTab === 'photos') {
+      if (gameState.photos.length === 0) {
+        box.innerHTML = '<div class="clue-item"><div class="clue-desc">Nenhuma foto registrada.</div></div>';
+        return;
+      }
+      box.innerHTML = gameState.photos.map(p => `
+        <div class="clue-item">
+          <div class="clue-title">${p.caption}</div>
+          ${p.img ? `<img class="photo-thumb" src="${p.img}" alt="${p.caption}">` : ''}
+        </div>
+      `).join('');
+    } else if (currentDossierTab === 'board') {
+      const pairs = [
+        { a: 'clue_report_86', b: 'clue_archive_key', label: 'Recorte 1986 + Registro Municipal' },
+        { a: 'clue_archive_key', b: 'clue_radio_tape', label: 'Registro Municipal + Fita KRC-94' }
+      ];
+      box.innerHTML = `
+        <div class="clue-item"><div class="clue-desc">Conexões: ${gameState.connectedPairs.length}/2</div></div>
+        <div class="board-pair">
+          ${pairs.map((p, i) => {
+            const hasBoth = gameState.cluesFound.includes(p.a) && gameState.cluesFound.includes(p.b);
+            const done = gameState.connectedPairs.includes(i);
+            return `<button class="tab-btn modal-nav" ${!hasBoth || done ? 'disabled' : ''} onclick="window.__connectPair(${i})">${done ? '✓ ' + p.label : p.label}</button>`;
+          }).join('')}
+        </div>
+      `;
+    } else if (currentDossierTab === 'map') {
+      box.innerHTML = `
+        <div class="clue-item">
+          <div class="clue-title">Locais Visitados</div>
+          <div class="clue-desc">${gameState.visitedAreas.join(' • ')}</div>
+        </div>
+      `;
+    }
+  }
+
+  window.__connectPair = function(idx) {
+    if (!gameState.connectedPairs.includes(idx)) {
+      gameState.connectedPairs.push(idx);
+      AudioEngine.playClick('confirm');
+      showToast('Conexão salva.');
+      saveGame();
+      renderDossier('board');
+    }
+  };
+
+  function applySettings() {
+    document.body.classList.remove('style-ps1', 'style-realistic', 'style-atmospheric', 'style-noir', 'style-vhs');
+    document.body.classList.add('style-' + settings.visualStyle);
+
+    const scaleMap = { low: 0.75, medium: 1.0, high: 1.2, ultra: 1.4 };
+    const presetScale = scaleMap[settings.preset] || 1.0;
+    const finalScale = Math.min(1.6, Math.max(0.45, (settings.resolution / 100) * presetScale));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2) * (presetScale < 1 ? 0.85 : 1));
+    renderer.setSize(window.innerWidth * finalScale, window.innerHeight * finalScale, false);
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+
+    if (settings.fog === 'off') fog.density = 0.0;
+    else if (settings.fog === 'heavy') fog.density = 0.036;
+    else fog.density = settings.preset === 'low' ? 0.016 : 0.022;
+
+    const shadowEnabled = settings.preset !== 'low';
+    renderer.shadowMap.enabled = shadowEnabled;
+    moonLight.castShadow = shadowEnabled;
+
+    const clampedHud = Math.max(50, Math.min(130, Number(settings.hudScale) || 100));
+    document.documentElement.style.setProperty('--hud-scale', (clampedHud / 100).toFixed(2));
+    AudioEngine.applyVolumes();
+
+    document.getElementById('opt-preset').value = settings.preset;
+    document.getElementById('opt-visual-style').value = settings.visualStyle;
+    document.getElementById('opt-resolution').value = settings.resolution;
+    document.getElementById('val-res').textContent = settings.resolution + '%';
+    document.getElementById('opt-fog').value = settings.fog;
+    document.getElementById('opt-vol-master').value = settings.volMaster;
+    document.getElementById('val-vol-master').textContent = settings.volMaster + '%';
+    document.getElementById('opt-vol-voice').value = settings.volVoice;
+    document.getElementById('val-vol-voice').textContent = settings.volVoice + '%';
+    document.getElementById('opt-vol-sfx').value = settings.volSfx;
+    document.getElementById('val-vol-sfx').textContent = settings.volSfx + '%';
+    document.getElementById('opt-vol-music').value = settings.volMusic;
+    document.getElementById('val-vol-music').textContent = settings.volMusic + '%';
+    document.getElementById('opt-xbox-mode').value = settings.xboxMode;
+    document.getElementById('opt-hud').value = clampedHud;
+    document.getElementById('val-hud').textContent = clampedHud + '%';
+
+    applyDeviceUI();
+  }
+
+  function applyDeviceUI() {
+    const devBadge = document.getElementById('device-indicator');
+    const xboxNow = isXboxActive();
+    devBadge.textContent = `${deviceInfo.label}${xboxNow ? ' • Xbox' : ''}`;
+
+    document.body.classList.toggle('is-mobile', deviceInfo.isMobile);
+    if (deviceInfo.isMobile || deviceInfo.isTablet) {
+      document.body.classList.add('touch-active');
+    }
+    const touchEl = document.getElementById('touch-controls');
+    if (gameState.started && !gameState.paused && document.body.classList.contains('touch-active')) {
+      touchEl.classList.add('active');
+    } else {
+      touchEl.classList.remove('active');
+    }
+  }
+
+  function startNewGame() {
+    AudioEngine.init();
+    AudioEngine.playClick('confirm');
+    gameState.started = true;
+    gameState.paused = false;
+    gameState.hidden = false;
+    gameState.cameraMode = false;
+    gameState.cluesFound = [];
+    gameState.photos = [];
+    gameState.connectedPairs = [];
+    gameState.talkedCount = 0;
+    gameState.objective = 'Investigue Raven Creek.';
+    clueMeshes.forEach(item => { item.mesh.visible = true; });
+    killerState.active = false;
+    killerState.chasing = false;
+
+    camera.position.set(0, 1.65, 28);
+    yaw = 0;
+    pitch = 0;
+
+    document.getElementById('main-menu').classList.add('hidden');
+    document.getElementById('hud').classList.add('active');
+    applyDeviceUI();
+    AudioEngine.setMusicMode('exploration');
+
+    VoiceEngine.speak(
+      'Daniel Vance',
+      'Estou de volta a Raven Creek. Preciso descobrir o que liga este lugar ao passado.',
+      { pitch: 0.94, rate: 0.96, female: false }
+    );
+    saveGame();
+  }
+
+  function continueSavedGame() {
+    AudioEngine.init();
+    AudioEngine.playClick('confirm');
+    if (!loadGame()) return;
+    gameState.started = true;
+    gameState.paused = false;
+    document.getElementById('main-menu').classList.add('hidden');
+    document.getElementById('hud').classList.add('active');
+    applyDeviceUI();
+    AudioEngine.setMusicMode(gameState.cluesFound.length >= 2 ? 'mystery' : 'exploration');
+    showToast('Salvo carregado.');
+  }
+
+  function returnToMainMenu() {
+    VoiceEngine.stopSpeech();
+    gameState.started = false;
+    gameState.paused = false;
+    gameState.cameraMode = false;
+    document.getElementById('camera-overlay').classList.remove('active');
+    document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('open'));
+    document.getElementById('hud').classList.remove('active');
+    document.getElementById('touch-controls').classList.remove('active');
+    document.getElementById('main-menu').classList.remove('hidden');
+    AudioEngine.setMusicMode('none');
+    camera.position.copy(MENU_CAM_POS);
+    camera.lookAt(MENU_CAM_LOOK);
+    refreshContinueButton();
+    updateXboxFocusList();
+  }
+
+  const drawer = document.getElementById('mobile-pull-drawer');
+  const pullHandle = document.getElementById('mobile-pull-handle');
+  let pullStartY = null;
+  let drawerOpen = false;
+
+  function setDrawerOpen(open) {
+    drawerOpen = open;
+    drawer.classList.toggle('open', open);
+    AudioEngine.playClick(open ? 'confirm' : 'back');
+  }
+
+  pullHandle.addEventListener('touchstart', e => {
+    pullStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  pullHandle.addEventListener('touchend', e => {
+    if (pullStartY === null) return;
+    const dy = (e.changedTouches[0]?.clientY || pullStartY) - pullStartY;
+    if (dy > 14 || !drawerOpen) setDrawerOpen(!drawerOpen);
+    pullStartY = null;
+  }, { passive: true });
+
+  const joyZone = document.getElementById('joystick-zone');
+  const joyKnob = document.getElementById('joystick-knob');
+  let joyVec = { x: 0, y: 0 };
+  let joyTouchId = null;
+  let lookTouchId = null;
+  let lastLookX = 0;
+  let lastLookY = 0;
+
+  joyZone.addEventListener('touchstart', e => {
+    e.stopPropagation();
+    joyTouchId = e.changedTouches[0].identifier;
+  }, { passive: false });
+
+  joyZone.addEventListener('touchmove', e => {
+    e.stopPropagation();
+    for (const t of e.changedTouches) {
+      if (t.identifier === joyTouchId) {
+        const rect = joyZone.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const maxR = 26;
+        let dx = t.clientX - cx;
+        let dy = t.clientY - cy;
+        const dist = Math.hypot(dx, dy);
+        if (dist > maxR) {
+          dx = (dx / dist) * maxR;
+          dy = (dy / dist) * maxR;
+        }
+        joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+        joyVec.x = dx / maxR;
+        joyVec.y = dy / maxR;
+      }
+    }
+  }, { passive: false });
+
+  function resetJoy(e) {
+    for (const t of e.changedTouches) {
+      if (t.identifier === joyTouchId) {
+        joyTouchId = null;
+        joyVec = { x: 0, y: 0 };
+        joyKnob.style.transform = 'translate(0px, 0px)';
+      }
+    }
+  }
+  joyZone.addEventListener('touchend', resetJoy);
+  joyZone.addEventListener('touchcancel', resetJoy);
+
+  canvas.addEventListener('touchstart', e => {
+    if (!gameState.started || gameState.paused) return;
+    for (const t of e.changedTouches) {
+      if (t.identifier !== joyTouchId && lookTouchId === null && t.clientX > window.innerWidth * 0.3) {
+        lookTouchId = t.identifier;
+        lastLookX = t.clientX;
+        lastLookY = t.clientY;
+      }
+    }
+  }, { passive: true });
+
+  canvas.addEventListener('touchmove', e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === lookTouchId) {
+        const dx = t.clientX - lastLookX;
+        const dy = t.clientY - lastLookY;
+        lastLookX = t.clientX;
+        lastLookY = t.clientY;
+        yaw -= dx * 0.0058;
+        pitch = Math.max(-1.25, Math.min(1.25, pitch - dy * 0.0048));
+      }
+    }
+  }, { passive: true });
+
+  canvas.addEventListener('touchend', e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === lookTouchId) lookTouchId = null;
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    const code = e.code;
+    keys[code] = true;
+
+    if (code === 'Escape') {
+      if (document.getElementById('settings-modal').classList.contains('open')) closeModal('settings-modal');
+      else if (document.getElementById('dossier-modal').classList.contains('open')) closeModal('dossier-modal');
+      else if (document.getElementById('credits-modal').classList.contains('open')) closeModal('credits-modal');
+      else if (gameState.started) {
+        if (document.getElementById('pause-modal').classList.contains('open')) closeModal('pause-modal');
+        else openModal('pause-modal');
+      }
+      return;
+    }
+
+    if (!gameState.started) return;
+
+    if (code === 'Tab') {
+      e.preventDefault();
+      if (document.getElementById('dossier-modal').classList.contains('open')) closeModal('dossier-modal');
+      else { renderDossier(); openModal('dossier-modal'); }
+      return;
+    }
+
+    if (gameState.paused) return;
+
+    if (code === 'KeyE') triggerInteract();
+    else if (code === 'KeyF') {
+      flashlightOn = !flashlightOn;
+      flashlight.visible = flashlightOn;
+      AudioEngine.playFlashlightSwitch(flashlightOn);
+    } else if (code === 'KeyQ') {
+      gameState.cameraMode = !gameState.cameraMode;
+      document.getElementById('camera-overlay').classList.toggle('active', gameState.cameraMode);
+      AudioEngine.playClick('confirm');
+    } else if (code === 'KeyC') {
+      isCrouching = !isCrouching;
+      AudioEngine.playClick('tap');
+    }
+  });
+
+  document.addEventListener('keyup', e => {
+    keys[e.code] = false;
+  });
+
+  canvas.addEventListener('click', () => {
+    AudioEngine.init();
+    if (!gameState.started || gameState.paused) return;
+    if (gameState.cameraMode) {
+      takePhoto();
+      return;
+    }
+    if (!deviceInfo.isMobile && document.pointerLockElement !== canvas && canvas.requestPointerLock) {
+      try { canvas.requestPointerLock(); } catch (e) {}
+    }
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!gameState.started || gameState.paused) return;
+    if (document.pointerLockElement === canvas) {
+      yaw -= e.movementX * 0.0022;
+      pitch = Math.max(-1.25, Math.min(1.25, pitch - e.movementY * 0.002));
+    }
+  });
+
+  document.addEventListener('click', e => {
+    if (e.target.closest('button, select, .tab-btn, .drawer-btn')) {
+      AudioEngine.playClick('tap');
+    }
+  });
+
+  let xboxFocusIdx = 0;
+  let xboxFocusable = [];
+  let prevButtons = [];
+  let xboxNavCooldown = 0;
+
+  function updateXboxFocusList() {
+    if (!isXboxActive()) {
+      document.querySelectorAll('.xbox-focus').forEach(el => el.classList.remove('xbox-focus'));
+      return;
+    }
+    const openModalEl = document.querySelector('.modal-backdrop.open');
+    if (openModalEl) xboxFocusable = Array.from(openModalEl.querySelectorAll('.modal-nav:not([disabled])'));
+    else if (!document.getElementById('main-menu').classList.contains('hidden')) xboxFocusable = Array.from(document.querySelectorAll('#main-menu .menu-nav:not([disabled])'));
+    else if (gameState.started && !gameState.paused) xboxFocusable = Array.from(document.querySelectorAll('#hud .hud-nav:not([disabled])'));
+    else xboxFocusable = [];
+    xboxFocusIdx = 0;
+    highlightXboxFocus();
+  }
+
+  function highlightXboxFocus() {
+    document.querySelectorAll('.xbox-focus').forEach(el => el.classList.remove('xbox-focus'));
+    if (!isXboxActive() || xboxFocusable.length === 0) return;
+    const el = xboxFocusable[xboxFocusIdx % xboxFocusable.length];
+    if (el) {
+      el.classList.add('xbox-focus');
+      el.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function pollXboxController(dt) {
+    if (!isXboxActive() || !navigator.getGamepads) return;
+    xboxNavCooldown = Math.max(0, xboxNavCooldown - dt);
+    const pads = navigator.getGamepads();
+    const gp = pads && (pads[0] || pads[1] || pads[2] || pads[3]);
+    if (!gp) return;
+
+    const deadzone = 0.22;
+    const lx = Math.abs(gp.axes[0] || 0) > deadzone ? gp.axes[0] : 0;
+    const ly = Math.abs(gp.axes[1] || 0) > deadzone ? gp.axes[1] : 0;
+    const rx = Math.abs(gp.axes[2] || 0) > deadzone ? gp.axes[2] : 0;
+    const ry = Math.abs(gp.axes[3] || 0) > deadzone ? gp.axes[3] : 0;
+
+    const btn = i => Boolean(gp.buttons[i] && gp.buttons[i].pressed);
+    const justPressed = i => btn(i) && !prevButtons[i];
+
+    const menuVisible = !document.getElementById('main-menu').classList.contains('hidden');
+    const modalOpen = Boolean(document.querySelector('.modal-backdrop.open'));
+    if (menuVisible || modalOpen) {
+      if (xboxFocusable.length === 0) updateXboxFocusList();
+      const moveDir = (btn(13) || ly > 0.5 || btn(15) || lx > 0.5) ? 1 : ((btn(12) || ly < -0.5 || btn(14) || lx < -0.5) ? -1 : 0);
+      if (moveDir !== 0 && xboxNavCooldown <= 0 && xboxFocusable.length > 0) {
+        xboxFocusIdx = (xboxFocusIdx + moveDir + xboxFocusable.length) % xboxFocusable.length;
+        highlightXboxFocus();
+        AudioEngine.playClick('tap');
+        xboxNavCooldown = 0.22;
+      }
+      if (justPressed(0)) {
+        const activeEl = xboxFocusable[xboxFocusIdx % xboxFocusable.length];
+        if (activeEl) activeEl.click();
+      }
+      if (justPressed(1) && modalOpen) {
+        const openM = document.querySelector('.modal-backdrop.open');
+        if (openM) closeModal(openM.id);
+      }
+    } else if (gameState.started && !gameState.paused) {
+      keys['GamepadMoveX'] = lx;
+      keys['GamepadMoveY'] = ly;
+      yaw -= rx * 2.2 * dt;
+      pitch = Math.max(-1.25, Math.min(1.25, pitch - ry * 1.9 * dt));
+      keys['ShiftLeft'] = btn(5) || (gp.buttons[7] && gp.buttons[7].value > 0.5);
+
+      if (justPressed(0)) triggerInteract();
+      if (justPressed(2)) {
+        flashlightOn = !flashlightOn;
+        flashlight.visible = flashlightOn;
+        AudioEngine.playFlashlightSwitch(flashlightOn);
+      }
+      if (justPressed(3)) {
+        gameState.cameraMode = !gameState.cameraMode;
+        document.getElementById('camera-overlay').classList.toggle('active', gameState.cameraMode);
+      }
+      if (justPressed(4)) isCrouching = !isCrouching;
+      if (justPressed(8)) { renderDossier(); openModal('dossier-modal'); }
+      if (justPressed(9)) openModal('pause-modal');
+    }
+
+    prevButtons = gp.buttons.map(b => Boolean(b && b.pressed));
+  }
+
+  document.getElementById('btn-close-toast').addEventListener('click', closeToast);
+  document.getElementById('btn-close-subtitle').addEventListener('click', closeSubtitle);
+
+  document.getElementById('btn-new-game').addEventListener('click', startNewGame);
+  document.getElementById('btn-continue-game').addEventListener('click', continueSavedGame);
+  document.getElementById('btn-open-settings').addEventListener('click', () => openModal('settings-modal'));
+  document.getElementById('btn-open-credits').addEventListener('click', () => openModal('credits-modal'));
+
+  document.getElementById('btn-close-settings').addEventListener('click', () => closeModal('settings-modal'));
+  document.getElementById('btn-close-credits').addEventListener('click', () => closeModal('credits-modal'));
+  document.getElementById('btn-close-dossier').addEventListener('click', () => closeModal('dossier-modal'));
+
+  document.getElementById('btn-resume').addEventListener('click', () => closeModal('pause-modal'));
+  document.getElementById('pause-resume-btn').addEventListener('click', () => closeModal('pause-modal'));
+  document.getElementById('pause-save-btn').addEventListener('click', () => { saveGame(); showToast('Salvo.'); });
+  document.getElementById('pause-settings-btn').addEventListener('click', () => { closeModal('pause-modal'); openModal('settings-modal'); });
+  document.getElementById('pause-menu-btn').addEventListener('click', returnToMainMenu);
+
+  document.getElementById('hud-btn-dossier').addEventListener('click', () => { renderDossier(); openModal('dossier-modal'); });
+  document.getElementById('hud-btn-camera').addEventListener('click', () => {
+    gameState.cameraMode = !gameState.cameraMode;
+    document.getElementById('camera-overlay').classList.toggle('active', gameState.cameraMode);
+  });
+  document.getElementById('hud-btn-flashlight').addEventListener('click', () => {
+    flashlightOn = !flashlightOn;
+    flashlight.visible = flashlightOn;
+    AudioEngine.playFlashlightSwitch(flashlightOn);
+  });
+  document.getElementById('hud-btn-pause').addEventListener('click', () => openModal('pause-modal'));
+  document.getElementById('voice-replay-btn').addEventListener('click', () => VoiceEngine.replayLast());
+
+  document.getElementById('btn-ending-menu').addEventListener('click', returnToMainMenu);
+  document.getElementById('btn-ending-replay').addEventListener('click', () => {
+    document.getElementById('ending-modal').classList.remove('open');
+    startNewGame();
+  });
+
+  document.querySelectorAll('#dossier-modal .tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => renderDossier(btn.dataset.tab));
+  });
+
+  document.getElementById('btn-close-drawer').addEventListener('click', () => setDrawerOpen(false));
+  document.getElementById('drawer-dossier').addEventListener('click', () => { setDrawerOpen(false); renderDossier(); openModal('dossier-modal'); });
+  document.getElementById('drawer-map').addEventListener('click', () => { setDrawerOpen(false); renderDossier('map'); openModal('dossier-modal'); });
+  document.getElementById('drawer-camera').addEventListener('click', () => {
+    setDrawerOpen(false);
+    gameState.cameraMode = !gameState.cameraMode;
+    document.getElementById('camera-overlay').classList.toggle('active', gameState.cameraMode);
+  });
+  document.getElementById('drawer-flashlight').addEventListener('click', () => {
+    setDrawerOpen(false);
+    flashlightOn = !flashlightOn;
+    flashlight.visible = flashlightOn;
+    AudioEngine.playFlashlightSwitch(flashlightOn);
+  });
+  document.getElementById('drawer-crouch').addEventListener('click', () => { setDrawerOpen(false); isCrouching = !isCrouching; });
+  document.getElementById('drawer-touch-toggle').addEventListener('click', () => {
+    setDrawerOpen(false);
+    document.body.classList.toggle('touch-active');
+    applyDeviceUI();
+  });
+  document.getElementById('drawer-save').addEventListener('click', () => { setDrawerOpen(false); saveGame(); showToast('Salvo.'); });
+  document.getElementById('drawer-settings').addEventListener('click', () => { setDrawerOpen(false); openModal('settings-modal'); });
+  document.getElementById('drawer-pause').addEventListener('click', () => { setDrawerOpen(false); openModal('pause-modal'); });
+
+  document.getElementById('t-interact').addEventListener('click', triggerInteract);
+  document.getElementById('t-light').addEventListener('click', () => {
+    flashlightOn = !flashlightOn;
+    flashlight.visible = flashlightOn;
+    AudioEngine.playFlashlightSwitch(flashlightOn);
+  });
+  document.getElementById('t-cam').addEventListener('click', () => {
+    gameState.cameraMode = !gameState.cameraMode;
+    document.getElementById('camera-overlay').classList.toggle('active', gameState.cameraMode);
+  });
+  const tRun = document.getElementById('t-run');
+  tRun.addEventListener('touchstart', () => { keys['ShiftLeft'] = true; tRun.classList.add('active-hold'); }, { passive: true });
+  tRun.addEventListener('touchend', () => { keys['ShiftLeft'] = false; tRun.classList.remove('active-hold'); }, { passive: true });
+  document.getElementById('t-crouch').addEventListener('click', e => {
+    isCrouching = !isCrouching;
+    e.currentTarget.classList.toggle('active-hold', isCrouching);
+  });
+  document.getElementById('t-dossier').addEventListener('click', () => { renderDossier(); openModal('dossier-modal'); });
+
+  document.getElementById('opt-preset').addEventListener('change', e => { settings.preset = e.target.value; applySettings(); saveSettings(); });
+  document.getElementById('opt-visual-style').addEventListener('change', e => { settings.visualStyle = e.target.value; applySettings(); saveSettings(); });
+  document.getElementById('opt-resolution').addEventListener('input', e => { settings.resolution = Number(e.target.value); applySettings(); saveSettings(); });
+  document.getElementById('opt-fog').addEventListener('change', e => { settings.fog = e.target.value; applySettings(); saveSettings(); });
+  document.getElementById('opt-vol-master').addEventListener('input', e => { settings.volMaster = Number(e.target.value); applySettings(); saveSettings(); });
+  document.getElementById('opt-vol-voice').addEventListener('input', e => { settings.volVoice = Number(e.target.value); applySettings(); saveSettings(); });
+  document.getElementById('opt-vol-sfx').addEventListener('input', e => { settings.volSfx = Number(e.target.value); applySettings(); saveSettings(); });
+  document.getElementById('opt-vol-music').addEventListener('input', e => { settings.volMusic = Number(e.target.value); applySettings(); saveSettings(); });
+  document.getElementById('opt-xbox-mode').addEventListener('change', e => { settings.xboxMode = e.target.value; applySettings(); saveSettings(); updateXboxFocusList(); });
+  document.getElementById('opt-hud').addEventListener('input', e => { settings.hudScale = Number(e.target.value); applySettings(); saveSettings(); });
+
+  document.getElementById('btn-test-voice').addEventListener('click', () => {
+    VoiceEngine.speak('Daniel Vance', 'Testando a voz em português em Raven Creek.', { pitch: 0.95, rate: 0.96, female: false });
+  });
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    applySettings();
+  });
+
+  let lastTime = performance.now();
+
+  function animate(now) {
+    requestAnimationFrame(animate);
+    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+
+    pollXboxController(dt);
+
+    streetLamps.forEach(l => {
+      l.pt.intensity = l.base + Math.sin(now * 0.004 + l.phase) * 0.14;
+    });
+
+    clueMeshes.forEach((c, idx) => {
+      if (c.mesh.visible) {
+        c.mesh.rotation.y += 1.4 * dt;
+        c.mesh.position.y = c.clue.pos.y + Math.sin(now * 0.003 + idx) * 0.08;
+      }
+    });
+
+    npcs.forEach(n => {
+      const dxToPlayer = camera.position.x - n.rig.root.position.x;
+      const dzToPlayer = camera.position.z - n.rig.root.position.z;
+      const distPlayer = Math.hypot(dxToPlayer, dzToPlayer);
+      const isTalking = VoiceEngine.currentSpeaker === n.data.name;
+
+      n.isMoving = false;
+      if (gameState.started && !gameState.paused) {
+        if (n.pauseTimer > 0) {
+          n.pauseTimer -= dt;
+        } else if (distPlayer > 3.2) {
+          const wp = n.data.waypoints[n.wpIndex % n.data.waypoints.length];
+          const wx = wp.x - n.rig.root.position.x;
+          const wz = wp.z - n.rig.root.position.z;
+          const wDist = Math.hypot(wx, wz);
+
+          if (wDist < 0.5) {
+            n.wpIndex++;
+            n.pauseTimer = 1.4 + Math.random() * 1.6;
+          } else {
+            const moveSpeed = 1.45;
+            const stepX = (wx / wDist) * moveSpeed * dt;
+            const stepZ = (wz / wDist) * moveSpeed * dt;
+            if (!isPositionBlocked(n.rig.root.position.x + stepX, n.rig.root.position.z + stepZ, 0.45)) {
+              n.rig.root.position.x += stepX;
+              n.rig.root.position.z += stepZ;
+              n.rig.root.rotation.y = Math.atan2(wx, wz);
+              n.isMoving = true;
+            } else {
+              n.wpIndex++;
+            }
+          }
+        }
+      }
+
+      if (distPlayer < 4.5 || isTalking) {
+        n.rig.root.rotation.y = Math.atan2(dxToPlayer, dzToPlayer);
+      }
+
+      if (n.isMoving) {
+        n.walkPhase += dt * 7.5;
+        const swing = Math.sin(n.walkPhase) * 0.45;
+        n.rig.leftLeg.rotation.x = swing;
+        n.rig.rightLeg.rotation.x = -swing;
+        n.rig.leftArm.rotation.x = -swing * 0.7;
+        n.rig.rightArm.rotation.x = swing * 0.7;
+      } else {
+        n.rig.leftLeg.rotation.x *= 0.8;
+        n.rig.rightLeg.rotation.x *= 0.8;
+        n.rig.leftArm.rotation.x *= 0.8;
+        n.rig.rightArm.rotation.x *= 0.8;
+      }
+
+      n.rig.mouth.scale.y = isTalking ? (1 + Math.abs(Math.sin(now * 0.018)) * 2.4) : 1;
+    });
+
+    if (!gameState.started) {
+      camera.position.x = MENU_CAM_POS.x + Math.sin(now * 0.00025) * 1.4;
+      camera.lookAt(MENU_CAM_LOOK);
+      renderer.render(scene, camera);
+      return;
+    }
+
+    if (!gameState.paused && !gameState.hidden) {
+      if (keys['ArrowLeft']) yaw += 1.8 * dt;
+      if (keys['ArrowRight']) yaw -= 1.8 * dt;
+      if (keys['ArrowUp']) pitch = Math.min(1.25, pitch + 1.4 * dt);
+      if (keys['ArrowDown']) pitch = Math.max(-1.25, pitch - 1.4 * dt);
+
+      let moveF = 0;
+      let moveR = 0;
+      if (keys['KeyW']) moveF += 1;
+      if (keys['KeyS']) moveF -= 1;
+      if (keys['KeyD']) moveR += 1;
+      if (keys['KeyA']) moveR -= 1;
+      if (Math.abs(joyVec.y) > 0.05) moveF -= joyVec.y;
+      if (Math.abs(joyVec.x) > 0.05) moveR += joyVec.x;
+      if (Math.abs(keys['GamepadMoveY'] || 0) > 0.05) moveF -= keys['GamepadMoveY'];
+      if (Math.abs(keys['GamepadMoveX'] || 0) > 0.05) moveR += keys['GamepadMoveX'];
+
+      const len = Math.hypot(moveF, moveR);
+      const isRunning = Boolean(keys['ShiftLeft'] || keys['ShiftRight']) && !isCrouching && len > 0.1;
+      const speed = isCrouching ? 2.2 : (isRunning ? 7.8 : 4.5);
+
+      if (len > 0.05) {
+        const nf = moveF / Math.max(1, len);
+        const nr = moveR / Math.max(1, len);
+        const forwardX = -Math.sin(yaw);
+        const forwardZ = -Math.cos(yaw);
+        const rightX = Math.cos(yaw);
+        const rightZ = -Math.sin(yaw);
+
+        const vx = (forwardX * nf + rightX * nr) * speed * dt;
+        const vz = (forwardZ * nf + rightZ * nr) * speed * dt;
+
+        if (!isPositionBlocked(camera.position.x + vx, camera.position.z, 0.45)) camera.position.x += vx;
+        if (!isPositionBlocked(camera.position.x, camera.position.z + vz, 0.45)) camera.position.z += vz;
+
+        bobTime += dt * (isRunning ? 14 : 8.2);
+        stepTimer -= dt * (isRunning ? 1.75 : 1.0);
+        if (stepTimer <= 0) {
+          stepTimer = 0.54;
+          const isIndoor = Math.abs(camera.position.x) > 13;
+          AudioEngine.playFootstep(isIndoor, isRunning);
+        }
+      } else {
+        bobTime += dt * 1.5;
+      }
+
+      const targetEyeY = isCrouching ? 1.05 : 1.65;
+      const headBob = Math.sin(bobTime) * (len > 0.05 ? 0.048 : 0.01);
+      camera.position.y += (targetEyeY + headBob - camera.position.y) * Math.min(1, dt * 12);
+
+      camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+
+      const vignette = document.getElementById('chase-vignette');
+      if (killerState.active && killerState.chasing) {
+        vignette.style.opacity = '0.85';
+        const dx = camera.position.x - killerState.pos.x;
+        const dz = camera.position.z - killerState.pos.z;
+        const dist = Math.hypot(dx, dz) || 1;
+        killerState.pos.x += (dx / dist) * killerState.speed * dt;
+        killerState.pos.z += (dz / dist) * killerState.speed * dt;
+        killerRig.root.position.set(killerState.pos.x, 0, killerState.pos.z);
+        killerRig.root.rotation.y = Math.atan2(dx, dz);
+
+        if (dist < 1.7) {
+          killerState.chasing = false;
+          triggerEnding(false);
+        }
+      } else {
+        vignette.style.opacity = '0';
+      }
+
+      const area = getCurrentAreaName();
+      document.getElementById('hud-location').textContent = area;
+      document.getElementById('hud-objective').textContent = gameState.objective;
+      if (!gameState.visitedAreas.includes(area)) {
+        gameState.visitedAreas.push(area);
+      }
+
+      const target = findNearestInteractable();
+      const promptEl = document.getElementById('interact-prompt');
+      const crossEl = document.getElementById('crosshair');
+      if (target) {
+        promptEl.textContent = target.getLabel();
+        promptEl.classList.add('visible');
+        crossEl.classList.add('interact');
+      } else {
+        promptEl.classList.remove('visible');
+        crossEl.classList.remove('interact');
+      }
+
+      drawMinimap();
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  function finishLoading() {
+    document.getElementById('load-bar-fill').style.width = '100%';
+    document.getElementById('load-status').textContent = 'Pronto.';
+    const screen = document.getElementById('loading-screen');
+    screen.classList.add('hidden');
+    setTimeout(() => { screen.style.display = 'none'; }, 500);
+    document.getElementById('main-menu').classList.remove('hidden');
+    refreshContinueButton();
+    applySettings();
+    VoiceEngine.refreshVoices();
+    updateXboxFocusList();
+  }
+
+  try {
+    document.getElementById('load-bar-fill').style.width = '70%';
+    document.getElementById('load-status').textContent = 'Montando Raven Creek...';
+    renderer.render(scene, camera);
+    finishLoading();
+  } catch (err) {
+    finishLoading();
+  }
+
+  setTimeout(finishLoading, 1600);
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>
